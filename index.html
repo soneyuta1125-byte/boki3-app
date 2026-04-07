@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="簿記3級">
+<meta name="theme-color" content="#1E3A5F">
+<title>簿記3級 過去問アプリ</title>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        primary: '#1E3A5F',
+        accent: '#F5A623',
+        correct: '#27AE60',
+        incorrect: '#E74C3C',
+        bgapp: '#F8F9FA',
+      }
+    }
+  }
+}
+</script>
+<style>
+  * { -webkit-tap-highlight-color: transparent; }
+  body { overscroll-behavior: none; }
+  select, input, button { font-size: 16px !important; }
+</style>
+</head>
+<body class="bg-bgapp">
+<div id="root"></div>
+<script>
+// ===================== DATA =====================
+const CATEGORIES = {
+  cash:            "現金・預金",
+  receivable:      "売掛金・買掛金",
+  fixedAsset:      "固定資産・減価償却",
+  allowance:       "貸倒引当金",
+  inventory:       "繰越商品・売上原価",
+  deferral:        "経過勘定",
+  incomeStatement: "損益計算書",
+  balanceSheet:    "貸借対照表",
+  worksheet:       "精算表",
+}
+
+const ACCOUNT_LIST = [
+  "現金","当座預金","普通預金","小口現金",
+  "受取手形","売掛金","繰越商品","前払費用","未収収益","貸付金",
+  "建物","備品","車両運搬具","土地",
+  "建物減価償却累計額","備品減価償却累計額","車両運搬具減価償却累計額",
+  "貸倒引当金",
+  "支払手形","買掛金","前受収益","未払費用","未払金","借入金","当座借越",
+  "資本金","繰越利益剰余金",
+  "売上","受取利息","受取地代","受取家賃",
+  "仕入","給料","支払家賃","支払利息","支払地代","水道光熱費","通信費","消耗品費",
+  "減価償却費","貸倒引当金繰入","貸倒損失","現金過不足","雑益","雑損","損益",
+  "償却債権取立益",
+]
+
+const questions = [
+  // 現金・預金
+  { id:"J001", type:"journal", category:"cash", difficulty:"basic",
+    question:"現金¥30,000を当座預金に預け入れた。",
+    answer:{ debit:{account:"当座預金",amount:30000}, credit:{account:"現金",amount:30000} },
+    explanation:"現金を当座預金に預け入れると、当座預金（資産）が増加し、現金（資産）が減少します。借方に当座預金、貸方に現金を記入します。",
+    examFrequency:"high" },
+  { id:"J002", type:"journal", category:"cash", difficulty:"basic",
+    question:"小口現金係から今月の支払報告を受けた。交通費¥2,500、消耗品費¥1,800、合計¥4,300であった。",
+    answer:{ debit:{account:"消耗品費",amount:4300}, credit:{account:"小口現金",amount:4300} },
+    explanation:"小口現金の報告を受けた時点で費用を計上し、貸方に小口現金を記入します。実務では各費用科目に分けて処理します。",
+    examFrequency:"high" },
+  { id:"J003", type:"journal", category:"cash", difficulty:"standard",
+    question:"現金の実際残高を調べたところ、帳簿残高より¥500少なかった。原因は不明である。",
+    answer:{ debit:{account:"現金過不足",amount:500}, credit:{account:"現金",amount:500} },
+    explanation:"現金不足が判明し原因不明の場合は、現金過不足勘定（借方）で処理します。後日原因が判明したら適切な勘定科目に振り替えます。",
+    examFrequency:"high" },
+  { id:"J004", type:"journal", category:"cash", difficulty:"standard",
+    question:"期末に現金過不足（借方残高¥300）の原因が判明しないため、雑損に振り替えた。",
+    answer:{ debit:{account:"雑損",amount:300}, credit:{account:"現金過不足",amount:300} },
+    explanation:"期末に現金過不足の原因が判明しない場合、借方残高（不足）は雑損に、貸方残高（過剰）は雑益に振り替えます。",
+    examFrequency:"high" },
+  { id:"J005", type:"journal", category:"cash", difficulty:"standard",
+    question:"当座預金残高が¥0になり、さらに¥50,000の小切手を振り出した（当座借越契約あり）。",
+    answer:{ debit:{account:"買掛金",amount:50000}, credit:{account:"当座借越",amount:50000} },
+    explanation:"当座預金が不足し借越となった場合は当座借越（負債）で処理します。",
+    examFrequency:"standard" },
+  { id:"C001", type:"choice", category:"cash", difficulty:"basic",
+    question:"小口現金制度において、会計係が仕訳をするのはいつか。",
+    choices:["支払いを行った都度","会計係に報告したとき","小口現金を補給したとき","月末に一括して"],
+    answer:1,
+    explanation:"小口現金制度では、小口現金出納係が支払い後に会計係へ報告したときに仕訳を行います。",
+    examFrequency:"high" },
+  { id:"C002", type:"choice", category:"cash", difficulty:"standard",
+    question:"次のうち、当座預金勘定の借方に記入するものはどれか。",
+    choices:["小切手を振り出して仕入代金を支払った","得意先振出の小切手を受け取った","現金を当座預金に預け入れた","約束手形を振り出して借入金を返済した"],
+    answer:2,
+    explanation:"現金を当座預金に預け入れると当座預金が増加するため借方に記入します。小切手を振り出すと当座預金が減少（貸方）です。",
+    examFrequency:"high" },
+
+  // 売掛金・買掛金
+  { id:"J006", type:"journal", category:"receivable", difficulty:"basic",
+    question:"商品¥80,000を得意先に掛けで売り上げた。",
+    answer:{ debit:{account:"売掛金",amount:80000}, credit:{account:"売上",amount:80000} },
+    explanation:"掛け売上では、代金を後日受け取る権利（売掛金）が発生します。借方に売掛金（資産の増加）、貸方に売上（収益の発生）を記入します。",
+    examFrequency:"high" },
+  { id:"J007", type:"journal", category:"receivable", difficulty:"basic",
+    question:"商品¥60,000を仕入先から掛けで仕入れた。",
+    answer:{ debit:{account:"仕入",amount:60000}, credit:{account:"買掛金",amount:60000} },
+    explanation:"掛け仕入では、代金を後日支払う義務（買掛金）が発生します。借方に仕入（費用の発生）、貸方に買掛金（負債の増加）を記入します。",
+    examFrequency:"high" },
+  { id:"J008", type:"journal", category:"receivable", difficulty:"basic",
+    question:"売掛金¥80,000を現金で回収した。",
+    answer:{ debit:{account:"現金",amount:80000}, credit:{account:"売掛金",amount:80000} },
+    explanation:"売掛金の回収では、現金（資産）が増加し、売掛金（資産）が減少します。",
+    examFrequency:"high" },
+  { id:"J009", type:"journal", category:"receivable", difficulty:"basic",
+    question:"買掛金¥60,000を小切手を振り出して支払った。",
+    answer:{ debit:{account:"買掛金",amount:60000}, credit:{account:"当座預金",amount:60000} },
+    explanation:"小切手を振り出すと当座預金（資産）が減少します。買掛金（負債）の消滅を借方に記入します。",
+    examFrequency:"high" },
+  { id:"J010", type:"journal", category:"receivable", difficulty:"standard",
+    question:"得意先から売掛金¥50,000の回収として、同社振出の約束手形¥50,000を受け取った。",
+    answer:{ debit:{account:"受取手形",amount:50000}, credit:{account:"売掛金",amount:50000} },
+    explanation:"売掛金を手形で回収した場合、売掛金（資産）が減少し、受取手形（資産）が増加します。",
+    examFrequency:"high" },
+  { id:"J011", type:"journal", category:"receivable", difficulty:"standard",
+    question:"仕入先への買掛金¥40,000の支払いとして、約束手形¥40,000を振り出した。",
+    answer:{ debit:{account:"買掛金",amount:40000}, credit:{account:"支払手形",amount:40000} },
+    explanation:"買掛金を手形で支払った場合、買掛金（負債）が減少し、支払手形（負債）が増加します。",
+    examFrequency:"high" },
+  { id:"C003", type:"choice", category:"receivable", difficulty:"basic",
+    question:"売掛金元帳（得意先元帳）に記録するのはどれか。",
+    choices:["仕入先ごとの買掛金残高","得意先ごとの売掛金残高","商品ごとの在庫数量","銀行ごとの預金残高"],
+    answer:1,
+    explanation:"売掛金元帳（得意先元帳）は、得意先ごとの売掛金の増減と残高を管理する補助元帳です。",
+    examFrequency:"high" },
+
+  // 固定資産・減価償却
+  { id:"J012", type:"journal", category:"fixedAsset", difficulty:"basic",
+    question:"備品¥200,000を購入し、代金は現金で支払った。",
+    answer:{ debit:{account:"備品",amount:200000}, credit:{account:"現金",amount:200000} },
+    explanation:"固定資産（備品）の購入では、備品（資産）が増加し、現金（資産）が減少します。",
+    examFrequency:"high" },
+  { id:"J013", type:"journal", category:"fixedAsset", difficulty:"standard",
+    question:"期末に備品（取得原価¥200,000、残存価額¥20,000、耐用年数9年）について定額法で減価償却を行った。",
+    answer:{ debit:{account:"減価償却費",amount:20000}, credit:{account:"備品減価償却累計額",amount:20000} },
+    explanation:"定額法の減価償却費＝（200,000－20,000）÷9＝20,000円。間接法では累計額勘定を使います。",
+    examFrequency:"high" },
+  { id:"J014", type:"journal", category:"fixedAsset", difficulty:"advanced",
+    question:"期首に車両（取得原価¥500,000、前期末減価償却累計額¥200,000）を定率法（償却率20%）で減価償却した。",
+    answer:{ debit:{account:"減価償却費",amount:60000}, credit:{account:"車両運搬具減価償却累計額",amount:60000} },
+    explanation:"定率法の償却額＝期首帳簿価額×償却率＝（500,000－200,000）×0.2＝60,000円。",
+    examFrequency:"high" },
+  { id:"C004", type:"choice", category:"fixedAsset", difficulty:"basic",
+    question:"定額法による年間減価償却費の計算式として正しいものはどれか。",
+    choices:["取得原価 × 償却率","（取得原価 − 残存価額）÷ 耐用年数","帳簿価額 × 償却率","（取得原価 − 残存価額）× 耐用年数"],
+    answer:1,
+    explanation:"定額法は毎期同額を償却します。公式は（取得原価−残存価額）÷耐用年数です。",
+    examFrequency:"high" },
+  { id:"C005", type:"choice", category:"fixedAsset", difficulty:"standard",
+    question:"間接法で減価償却を記録した場合、貸借対照表における固定資産の表示として正しいものはどれか。",
+    choices:["取得原価のみを記載する","帳簿価額（純額）のみを記載する","取得原価から減価償却累計額を控除した形で記載する","減価償却累計額のみを記載する"],
+    answer:2,
+    explanation:"間接法では、貸借対照表に取得原価と減価償却累計額を対応させて表示し、差額（帳簿価額）を明示します。",
+    examFrequency:"high" },
+  { id:"J015b", type:"journal", category:"fixedAsset", difficulty:"basic",
+    question:"建物¥3,000,000を購入し、代金は全額現金で支払った。",
+    answer:{ debit:{account:"建物",amount:3000000}, credit:{account:"現金",amount:3000000} },
+    explanation:"建物を現金で購入した場合、建物（資産）が増加し現金（資産）が減少します。",
+    examFrequency:"standard" },
+
+  // 貸倒引当金
+  { id:"J017", type:"journal", category:"allowance", difficulty:"standard",
+    question:"期末売掛金残高¥400,000に対して2%の貸倒引当金を設定した（差額補充法、前期残高¥5,000）。",
+    answer:{ debit:{account:"貸倒引当金繰入",amount:3000}, credit:{account:"貸倒引当金",amount:3000} },
+    explanation:"差額補充法：必要額400,000×2%＝8,000円。不足額8,000－5,000＝3,000円を繰入れます。",
+    examFrequency:"high" },
+  { id:"J018", type:"journal", category:"allowance", difficulty:"standard",
+    question:"前期発生の売掛金¥20,000が貸し倒れた。貸倒引当金残高は¥20,000である。",
+    answer:{ debit:{account:"貸倒引当金",amount:20000}, credit:{account:"売掛金",amount:20000} },
+    explanation:"前期発生の売掛金が貸し倒れた場合、貸倒引当金を取り崩して処理します。引当金残高が十分あれば全額引当金で処理できます。",
+    examFrequency:"high" },
+  { id:"J019", type:"journal", category:"allowance", difficulty:"advanced",
+    question:"当期発生の売掛金¥10,000が貸し倒れた。貸倒引当金残高は¥8,000である。",
+    answer:{ debit:{account:"貸倒損失",amount:10000}, credit:{account:"売掛金",amount:10000} },
+    explanation:"当期発生の売掛金が貸し倒れた場合、貸倒引当金は使用せず、全額を貸倒損失（費用）で処理します。",
+    examFrequency:"standard" },
+  { id:"C006", type:"choice", category:"allowance", difficulty:"standard",
+    question:"貸倒引当金は貸借対照表上、どのように表示されるか。",
+    choices:["負債の部に計上される","売掛金・受取手形から控除する形式で表示される","費用として損益計算書に表示される","純資産の部に計上される"],
+    answer:1,
+    explanation:"貸倒引当金は資産の控除項目として、売掛金・受取手形の下に「貸倒引当金 △○○」の形で表示（間接控除方式）されます。",
+    examFrequency:"high" },
+  { id:"C007", type:"choice", category:"allowance", difficulty:"basic",
+    question:"貸倒引当金を設定する目的として最も適切なものはどれか。",
+    choices:["売掛金の回収を保証するため","将来の貸倒れに備えて費用を前もって計上するため","得意先の信用調査を行うため","売掛金の利息を計算するため"],
+    answer:1,
+    explanation:"貸倒引当金は費用収益対応の原則に基づき、将来発生が予想される貸倒損失を当期の費用として見積もり計上するものです。",
+    examFrequency:"high" },
+  { id:"J020", type:"journal", category:"allowance", difficulty:"advanced",
+    question:"前期に貸倒処理した売掛金¥5,000が現金で回収された。",
+    answer:{ debit:{account:"現金",amount:5000}, credit:{account:"償却債権取立益",amount:5000} },
+    explanation:"貸倒処理後に回収した場合は償却債権取立益（収益）として処理します。",
+    examFrequency:"standard" },
+
+  // 繰越商品・売上原価
+  { id:"J021", type:"journal", category:"inventory", difficulty:"standard",
+    question:"決算整理：期首商品棚卸高¥30,000を仕入勘定に振り替えた。",
+    answer:{ debit:{account:"仕入",amount:30000}, credit:{account:"繰越商品",amount:30000} },
+    explanation:"売上原価算定の第1ステップ：期首在庫（繰越商品）を仕入に振り替えます。",
+    examFrequency:"high" },
+  { id:"J022", type:"journal", category:"inventory", difficulty:"standard",
+    question:"決算整理：期末商品棚卸高¥45,000を繰越商品勘定に振り替えた。",
+    answer:{ debit:{account:"繰越商品",amount:45000}, credit:{account:"仕入",amount:45000} },
+    explanation:"売上原価算定の第2ステップ：期末在庫を仕入から差し引きます。仕入勘定の残高が売上原価となります。",
+    examFrequency:"high" },
+  { id:"J023", type:"journal", category:"inventory", difficulty:"basic",
+    question:"商品¥50,000を仕入れ、代金は現金で支払った（三分法）。",
+    answer:{ debit:{account:"仕入",amount:50000}, credit:{account:"現金",amount:50000} },
+    explanation:"三分法では、商品購入時に仕入勘定（費用）を借方に計上します。",
+    examFrequency:"high" },
+  { id:"C008", type:"choice", category:"inventory", difficulty:"standard",
+    question:"売上原価を計算する式として正しいものはどれか。",
+    choices:["期首商品棚卸高 ＋ 当期仕入高 ＋ 期末商品棚卸高","期首商品棚卸高 ＋ 当期仕入高 − 期末商品棚卸高","当期仕入高 − 期首商品棚卸高 ＋ 期末商品棚卸高","期末商品棚卸高 − 期首商品棚卸高 ＋ 当期仕入高"],
+    answer:1,
+    explanation:"売上原価＝期首商品棚卸高＋当期仕入高−期末商品棚卸高。期末在庫は次期に繰り越すため除きます。",
+    examFrequency:"high" },
+  { id:"C009", type:"choice", category:"inventory", difficulty:"basic",
+    question:"売上高¥500,000、売上原価¥350,000のとき、売上総利益はいくらか。",
+    choices:["¥150,000","¥350,000","¥500,000","¥850,000"],
+    answer:0,
+    explanation:"売上総利益＝売上高−売上原価＝500,000−350,000＝150,000円。",
+    examFrequency:"high" },
+  { id:"C010", type:"choice", category:"inventory", difficulty:"standard",
+    question:"三分法において使用する勘定科目の組み合わせとして正しいものはどれか。",
+    choices:["商品・仕入・売上","繰越商品・仕入・売上","商品のみ","仕入・売上のみ"],
+    answer:1,
+    explanation:"三分法では①繰越商品（期首・期末在庫）②仕入（当期仕入高）③売上（当期売上高）の3勘定を使います。",
+    examFrequency:"high" },
+
+  // 経過勘定
+  { id:"J024", type:"journal", category:"deferral", difficulty:"standard",
+    question:"決算整理：支払保険料¥24,000のうち次期分¥8,000を前払費用として繰り延べた。",
+    answer:{ debit:{account:"前払費用",amount:8000}, credit:{account:"支払家賃",amount:8000} },
+    explanation:"次期分の費用を当期に支払った場合、前払費用（資産）として繰り延べます。費用の繰り延べ処理です。",
+    examFrequency:"high" },
+  { id:"J025", type:"journal", category:"deferral", difficulty:"standard",
+    question:"決算整理：給料の未払分¥15,000を計上した。",
+    answer:{ debit:{account:"給料",amount:15000}, credit:{account:"未払費用",amount:15000} },
+    explanation:"当期に発生しているが未払いの費用は未払費用（負債）として計上します。費用の見越し処理です。",
+    examFrequency:"high" },
+  { id:"J026", type:"journal", category:"deferral", difficulty:"standard",
+    question:"決算整理：受取家賃¥60,000のうち次期分¥20,000を前受収益として繰り延べた。",
+    answer:{ debit:{account:"受取家賃",amount:20000}, credit:{account:"前受収益",amount:20000} },
+    explanation:"次期分の収益を当期に受け取った場合、前受収益（負債）として繰り延べます。収益の繰り延べ処理です。",
+    examFrequency:"high" },
+  { id:"J027", type:"journal", category:"deferral", difficulty:"standard",
+    question:"決算整理：貸付金に対する利息¥3,000が未収であるため、未収収益として計上した。",
+    answer:{ debit:{account:"未収収益",amount:3000}, credit:{account:"受取利息",amount:3000} },
+    explanation:"当期に発生しているが未収の収益は未収収益（資産）として計上します。収益の見越し処理です。",
+    examFrequency:"high" },
+  { id:"C011", type:"choice", category:"deferral", difficulty:"standard",
+    question:"次の経過勘定項目のうち、資産に分類されるものをすべて選んだ組み合わせはどれか。",
+    choices:["前払費用・未収収益","前受収益・未払費用","前払費用・未払費用","前受収益・未収収益"],
+    answer:0,
+    explanation:"前払費用（次期の費用を先払い）と未収収益（当期の収益がまだ未回収）はともに資産です。前受収益・未払費用は負債です。",
+    examFrequency:"high" },
+  { id:"C012", type:"choice", category:"deferral", difficulty:"advanced",
+    question:"4月1日に1年分の保険料¥120,000を支払った（決算日：3月31日）。決算整理は必要か？",
+    choices:["不要。1年分を全額当期の費用にする","不要。全額前払費用にする","必要。次期分を前払費用として繰り延べる","必要。当期分を未払費用として計上する"],
+    answer:0,
+    explanation:"4月1日支払・3月31日決算であれば、支払日から決算日まで exactly 1年分のため全額当期の費用です。経過勘定の処理は不要です。",
+    examFrequency:"standard" },
+
+  // 損益計算書
+  { id:"C013", type:"choice", category:"incomeStatement", difficulty:"basic",
+    question:"損益計算書の「営業利益」を計算する式として正しいものはどれか。",
+    choices:["売上高 − 売上原価","売上総利益 − 販売費及び一般管理費","営業利益 ＋ 営業外収益 − 営業外費用","経常利益 ＋ 特別利益 − 特別損失"],
+    answer:1,
+    explanation:"営業利益＝売上総利益−販売費及び一般管理費。売上高−売上原価は売上総利益です。",
+    examFrequency:"high" },
+  { id:"C014", type:"choice", category:"incomeStatement", difficulty:"standard",
+    question:"売上高¥800,000、売上原価¥500,000、販管費¥150,000、受取利息¥5,000、支払利息¥3,000のとき、経常利益はいくらか。",
+    choices:["¥152,000","¥150,000","¥147,000","¥155,000"],
+    answer:0,
+    explanation:"売上総利益300,000 → 営業利益150,000 → 経常利益150,000＋5,000－3,000＝152,000円。",
+    examFrequency:"high" },
+  { id:"C015", type:"choice", category:"incomeStatement", difficulty:"basic",
+    question:"損益計算書に記載される「売上総利益」の別称として正しいものはどれか。",
+    choices:["純利益","粗利益（グロスマージン）","営業利益","経常利益"],
+    answer:1,
+    explanation:"売上総利益は「粗利益」とも呼ばれ、売上高から売上原価を差し引いた利益です。",
+    examFrequency:"high" },
+  { id:"C016", type:"choice", category:"incomeStatement", difficulty:"standard",
+    question:"当期純利益が計上された場合の損益勘定の振替仕訳はどれか。",
+    choices:["損益 / 資本金","資本金 / 損益","損益 / 繰越利益剰余金","繰越利益剰余金 / 損益"],
+    answer:2,
+    explanation:"当期純利益は損益勘定の貸方残高として計算され、繰越利益剰余金（純資産）に振り替えます。",
+    examFrequency:"high" },
+  { id:"C017", type:"choice", category:"incomeStatement", difficulty:"advanced",
+    question:"損益計算書において販売費及び一般管理費に含まれないものはどれか。",
+    choices:["給料","支払利息","減価償却費","貸倒引当金繰入"],
+    answer:1,
+    explanation:"支払利息は営業外費用に分類されます。給料・減価償却費・貸倒引当金繰入は販売費及び一般管理費です。",
+    examFrequency:"high" },
+  { id:"J028", type:"journal", category:"incomeStatement", difficulty:"standard",
+    question:"決算において、売上¥500,000を損益勘定に振り替えた。",
+    answer:{ debit:{account:"売上",amount:500000}, credit:{account:"損益",amount:500000} },
+    explanation:"決算振替では収益勘定（貸方残高）を借方に記入して損益勘定（貸方）へ振り替えます。",
+    examFrequency:"standard" },
+
+  // 貸借対照表
+  { id:"C018", type:"choice", category:"balanceSheet", difficulty:"basic",
+    question:"貸借対照表の左側（借方）に記載されるものはどれか。",
+    choices:["負債","純資産","資産","収益"],
+    answer:2,
+    explanation:"貸借対照表の左側（借方）は資産、右側（貸方）は負債と純資産です。",
+    examFrequency:"high" },
+  { id:"C019", type:"choice", category:"balanceSheet", difficulty:"basic",
+    question:"次のうち流動資産に分類されるものはどれか。",
+    choices:["建物","土地","売掛金","長期貸付金"],
+    answer:2,
+    explanation:"売掛金は1年以内に現金化される流動資産です。建物・土地は固定資産です。",
+    examFrequency:"high" },
+  { id:"C020", type:"choice", category:"balanceSheet", difficulty:"standard",
+    question:"純資産（自己資本）の金額を求める式として正しいものはどれか。",
+    choices:["資産合計 ＋ 負債合計","資産合計 − 負債合計","負債合計 − 資産合計","資産合計 × 負債合計"],
+    answer:1,
+    explanation:"貸借対照表等式：資産＝負債＋純資産 → 純資産＝資産−負債。",
+    examFrequency:"high" },
+  { id:"C021", type:"choice", category:"balanceSheet", difficulty:"standard",
+    question:"資産合計¥1,200,000、負債合計¥750,000のとき、純資産はいくらか。",
+    choices:["¥450,000","¥750,000","¥1,200,000","¥1,950,000"],
+    answer:0,
+    explanation:"純資産＝資産−負債＝1,200,000−750,000＝450,000円。",
+    examFrequency:"high" },
+  { id:"C022", type:"choice", category:"balanceSheet", difficulty:"advanced",
+    question:"貸借対照表上で「有形固定資産」に分類されないものはどれか。",
+    choices:["建物","備品","土地","特許権"],
+    answer:3,
+    explanation:"特許権は無形固定資産に分類されます。建物・備品・土地は有形固定資産です。",
+    examFrequency:"standard" },
+  { id:"J029", type:"journal", category:"balanceSheet", difficulty:"standard",
+    question:"借入金¥200,000を小切手を振り出して返済した。",
+    answer:{ debit:{account:"借入金",amount:200000}, credit:{account:"当座預金",amount:200000} },
+    explanation:"借入金（負債）の返済により、借入金が減少（借方）し、当座預金（資産）が減少（貸方）します。",
+    examFrequency:"high" },
+
+  // 精算表
+  { id:"C023", type:"choice", category:"worksheet", difficulty:"standard",
+    question:"精算表の修正記入欄において、売上原価を計算するための記入として正しいものはどれか。",
+    choices:["仕入（借方）繰越商品（貸方）だけ行う","期首繰越商品を仕入へ・期末繰越商品を仕入から差し引く2つの記入を行う","繰越商品（借方）仕入（貸方）だけ行う","売上勘定を修正する"],
+    answer:1,
+    explanation:"修正記入欄では①仕入（借）/繰越商品（貸）で期首在庫を加算、②繰越商品（借）/仕入（貸）で期末在庫を差し引く、2ステップが必要です。",
+    examFrequency:"high" },
+  { id:"C024", type:"choice", category:"worksheet", difficulty:"standard",
+    question:"精算表において、修正後の費用勘定残高は最終的にどの欄に記入されるか。",
+    choices:["貸借対照表欄の借方","損益計算書欄の借方","損益計算書欄の貸方","貸借対照表欄の貸方"],
+    answer:1,
+    explanation:"費用（借方性）は損益計算書欄の借方に記入されます。収益は損益計算書欄の貸方、資産は貸借対照表欄の借方です。",
+    examFrequency:"high" },
+  { id:"C025", type:"choice", category:"worksheet", difficulty:"advanced",
+    question:"精算表において損益計算書欄の貸方合計が借方合計より多い場合、それは何を意味するか。",
+    choices:["当期純損失","当期純利益","繰越利益剰余金の減少","資本金の増加"],
+    answer:1,
+    explanation:"損益計算書欄：貸方（収益）>借方（費用）なら当期純利益。差額を借方に記入して貸借を一致させます。",
+    examFrequency:"high" },
+  { id:"C026", type:"choice", category:"worksheet", difficulty:"advanced",
+    question:"精算表の記入の順序として正しいものはどれか。",
+    choices:["修正記入→損益計算書→貸借対照表→試算表","試算表→修正記入→損益計算書・貸借対照表","試算表→損益計算書→修正記入→貸借対照表","貸借対照表→損益計算書→修正記入→試算表"],
+    answer:1,
+    explanation:"精算表の作成順序：①試算表欄に転記→②修正記入欄に決算整理仕訳→③損益計算書欄・貸借対照表欄に振り分け。",
+    examFrequency:"high" },
+  { id:"C027", type:"choice", category:"worksheet", difficulty:"standard",
+    question:"精算表において「繰越商品」勘定は最終的にどの欄に記入されるか。",
+    choices:["損益計算書欄の借方","損益計算書欄の貸方","貸借対照表欄の借方","貸借対照表欄の貸方"],
+    answer:2,
+    explanation:"繰越商品（期末在庫）は資産であるため、貸借対照表欄の借方に記入されます。",
+    examFrequency:"high" },
+  { id:"J030", type:"journal", category:"worksheet", difficulty:"standard",
+    question:"決算整理：支払家賃¥60,000のうち前払分¥6,000を前払費用として振り替えた。",
+    answer:{ debit:{account:"前払費用",amount:6000}, credit:{account:"支払家賃",amount:6000} },
+    explanation:"支払家賃のうち次期対応分を前払費用（資産）に振り替えます。精算表では修正記入欄に記入し、貸借対照表欄の借方へ転記します。",
+    examFrequency:"standard" },
+]
+
+// ===================== PROGRESS =====================
+const STORAGE_KEY = 'bookkeeping_progress'
+
+function loadProgress() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}') } catch { return {} }
+}
+function saveProgressToStorage(data) {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)) } catch {}
+}
+
+// ===================== UTILS =====================
+function shuffle(arr) {
+  const a = [...arr]
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]]
+  }
+  return a
+}
+
+function getCategoryStats(progress) {
+  const stats = {}
+  for (const q of questions) {
+    if (!stats[q.category]) stats[q.category] = { total: 0, answered: 0, correct: 0 }
+    stats[q.category].total++
+    const p = progress[q.id]
+    if (p) { stats[q.category].answered++; if (p.correct) stats[q.category].correct++ }
+  }
+  return stats
+}
+
+// ===================== COMPONENTS =====================
+const { useState, useMemo, useCallback } = React
+const h = React.createElement
+
+// --- JournalEntryInput ---
+function JournalEntryInput({ onSubmit, disabled }) {
+  const [da, setDa] = useState('')
+  const [damt, setDamt] = useState('')
+  const [ca, setCa] = useState('')
+  const [camt, setCamt] = useState('')
+  const [err, setErr] = useState('')
+
+  function submit() {
+    setErr('')
+    if (!da || !ca) { setErr('勘定科目を選択してください'); return }
+    const d = parseInt(damt, 10), c = parseInt(camt, 10)
+    if (!d || !c) { setErr('金額を入力してください'); return }
+    if (d !== c) { setErr('借方・貸方の金額が一致していません'); return }
+    onSubmit({ debitAccount: da, debitAmount: d, creditAccount: ca, creditAmount: c })
+  }
+
+  const sel = (val, onChange, cls) => h('select', {
+    value: val, onChange: e => onChange(e.target.value), disabled,
+    className: `flex-1 border rounded-lg px-3 py-2 bg-white focus:outline-none ${cls}`
+  },
+    h('option', { value: '' }, '勘定科目 ▼'),
+    ...ACCOUNT_LIST.map(a => h('option', { key: a, value: a }, a))
+  )
+
+  const inp = (val, onChange, cls) => h('input', {
+    type: 'number', inputMode: 'numeric', placeholder: '金額',
+    value: val, onChange: e => onChange(e.target.value), disabled,
+    className: `w-28 border rounded-lg px-3 py-2 focus:outline-none ${cls}`
+  })
+
+  return h('div', { className: 'space-y-3' },
+    // Debit
+    h('div', { className: 'bg-blue-50 rounded-xl p-4 border border-blue-200' },
+      h('p', { className: 'text-xs font-bold text-blue-700 mb-2' }, '借方（デビット）'),
+      h('div', { className: 'flex gap-2' },
+        sel(da, setDa, 'border-blue-300 focus:ring-2 focus:ring-blue-400 disabled:opacity-50'),
+        inp(damt, setDamt, 'border-blue-300 focus:ring-2 focus:ring-blue-400 disabled:opacity-50')
+      )
+    ),
+    // Credit
+    h('div', { className: 'bg-orange-50 rounded-xl p-4 border border-orange-200' },
+      h('p', { className: 'text-xs font-bold text-orange-700 mb-2' }, '貸方（クレジット）'),
+      h('div', { className: 'flex gap-2' },
+        sel(ca, setCa, 'border-orange-300 focus:ring-2 focus:ring-orange-400 disabled:opacity-50'),
+        inp(camt, setCamt, 'border-orange-300 focus:ring-2 focus:ring-orange-400 disabled:opacity-50')
+      )
+    ),
+    err && h('p', { className: 'text-sm text-red-600 font-medium px-1' }, err),
+    !disabled && h('button', {
+      onClick: submit,
+      className: 'w-full bg-primary text-white font-bold rounded-xl py-3 text-base active:opacity-80',
+      style: { minHeight: 48, backgroundColor: '#1E3A5F' }
+    }, '答え合わせ')
+  )
+}
+
+// --- HomeScreen ---
+function HomeScreen({ progress, onStart, onReview, onRandom }) {
+  const stats = useMemo(() => getCategoryStats(progress), [progress])
+
+  function rateColor(rate) {
+    if (rate === null) return 'background:#fff;border:1px solid #e5e7eb'
+    if (rate >= 0.8) return 'background:#f0fdf4;border:1px solid #86efac'
+    if (rate >= 0.5) return 'background:#fefce8;border:1px solid #fde047'
+    return 'background:#fef2f2;border:1px solid #fca5a5'
+  }
+  function rateLabelColor(rate) {
+    if (rate === null) return '#9ca3af'
+    if (rate >= 0.8) return '#16a34a'
+    if (rate >= 0.5) return '#ca8a04'
+    return '#dc2626'
+  }
+  function barColor(rate) {
+    if (rate === null) return '#d1d5db'
+    if (rate >= 0.8) return '#27AE60'
+    if (rate >= 0.5) return '#F5A623'
+    return '#E74C3C'
+  }
+
+  const total = questions.length
+  const answered = Object.keys(progress).length
+  const correct = Object.values(progress).filter(p => p.correct).length
+  const overallRate = answered > 0 ? Math.round(correct / answered * 100) : 0
+
+  return h('div', { className: 'pb-8' },
+    // Hero
+    h('div', { style: { background: '#1E3A5F', color: '#fff', padding: '32px 20px 40px' } },
+      h('h1', { style: { fontSize: 22, fontWeight: 700, letterSpacing: '0.02em' } }, '簿記3級 過去問アプリ'),
+      h('p', { style: { fontSize: 13, opacity: 0.8, marginTop: 4 } }, `全 ${total} 問 ・ 解答済 ${answered} 問 ・ 正答率 ${overallRate}%`)
+    ),
+    h('div', { style: { padding: '0 16px', marginTop: -16 } },
+      // Buttons
+      h('div', { className: 'flex gap-3 mb-3' },
+        h('button', {
+          onClick: onRandom,
+          style: { flex: 1, background: '#F5A623', color: '#fff', fontWeight: 700, borderRadius: 12, padding: '12px 0', fontSize: 16, border: 'none', minHeight: 48, cursor: 'pointer' }
+        }, '全問ランダム'),
+        h('button', {
+          onClick: onReview,
+          style: { flex: 1, background: '#fff', color: '#1E3A5F', fontWeight: 700, borderRadius: 12, padding: '12px 0', fontSize: 16, border: '2px solid #1E3A5F', minHeight: 48, cursor: 'pointer' }
+        }, '苦手を復習')
+      ),
+      h('p', { style: { fontSize: 11, fontWeight: 700, color: '#9ca3af', margin: '12px 0 8px 4px' } }, 'カテゴリ別'),
+      ...Object.entries(CATEGORIES).map(([key, label]) => {
+        const s = stats[key] || { total: 0, answered: 0, correct: 0 }
+        const rate = s.answered > 0 ? s.correct / s.answered : null
+        const pct = s.total > 0 ? Math.round((s.correct / s.total) * 100) : 0
+        return h('button', {
+          key,
+          onClick: () => onStart(key),
+          style: {
+            display: 'block', width: '100%', textAlign: 'left',
+            borderRadius: 12, padding: '14px 16px', marginBottom: 8,
+            boxShadow: '0 1px 4px rgba(0,0,0,.08)', cursor: 'pointer',
+            ...Object.fromEntries(rateColor(rate).split(';').map(s => { const [k,v] = s.split(':'); return [k?.trim().replace(/-([a-z])/g, (_,c) => c.toUpperCase()), v?.trim()] }).filter(([k]) => k))
+          }
+        },
+          h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
+            h('span', { style: { fontWeight: 700, fontSize: 15, color: '#1f2937' } }, label),
+            h('span', { style: { fontWeight: 700, fontSize: 14, color: rateLabelColor(rate) } },
+              rate !== null ? `${Math.round(rate * 100)}%` : '未挑戦')
+          ),
+          h('div', { style: { fontSize: 12, color: '#6b7280', marginTop: 4 } }, `${s.total}問 ・ 回答済 ${s.answered}問`),
+          h('div', { style: { marginTop: 8, background: '#e5e7eb', borderRadius: 4, height: 6, overflow: 'hidden' } },
+            h('div', { style: { height: '100%', borderRadius: 4, background: barColor(rate), width: `${pct}%`, transition: 'width .3s' } })
+          )
+        )
+      })
+    )
+  )
+}
+
+// --- QuizScreen ---
+const DIFF_LABEL = { basic: '基礎', standard: '標準', advanced: '発展' }
+const DIFF_BG = { basic: 'background:#dbeafe;color:#1d4ed8', standard: 'background:#fef9c3;color:#92400e', advanced: 'background:#fee2e2;color:#b91c1c' }
+
+function QuizScreen({ qs, idx, onAnswer, onNext, onHome }) {
+  const [answered, setAnswered] = useState(false)
+  const [correct, setCorrect] = useState(false)
+  const [chosen, setChosen] = useState(null)
+  const q = qs[idx]
+
+  function handleJournal({ debitAccount, debitAmount, creditAccount, creditAmount }) {
+    const ok =
+      debitAccount.trim() === q.answer.debit.account &&
+      debitAmount === q.answer.debit.amount &&
+      creditAccount.trim() === q.answer.credit.account &&
+      creditAmount === q.answer.credit.amount
+    setCorrect(ok); setAnswered(true); onAnswer(q.id, ok)
+  }
+
+  function handleChoice(i) {
+    if (answered) return
+    const ok = i === q.answer
+    setChosen(i); setCorrect(ok); setAnswered(true); onAnswer(q.id, ok)
+  }
+
+  function next() { setAnswered(false); setCorrect(false); setChosen(null); onNext() }
+
+  const diffStyle = DIFF_BG[q.difficulty] || ''
+
+  return h('div', { className: 'pb-8' },
+    // header
+    h('div', { style: { background: '#1E3A5F', color: '#fff', padding: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
+      h('button', { onClick: onHome, style: { color: '#fff', opacity: 0.8, fontSize: 14, border: 'none', background: 'transparent', cursor: 'pointer' } }, '← ホーム'),
+      h('span', { style: { fontSize: 13, opacity: 0.8 } }, `${idx+1} / ${qs.length}`)
+    ),
+    h('div', { style: { background: '#1E3A5F', height: 4 } },
+      h('div', { style: { height: '100%', background: '#F5A623', width: `${((idx+1)/qs.length)*100}%`, transition: 'width .3s' } })
+    ),
+    h('div', { style: { padding: '16px', display: 'flex', flexDirection: 'column', gap: 12 } },
+      // badges
+      h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap' } },
+        h('span', { style: { fontSize: 11, background: '#f3f4f6', color: '#4b5563', borderRadius: 20, padding: '2px 10px' } }, CATEGORIES[q.category]),
+        h('span', { style: { fontSize: 11, borderRadius: 20, padding: '2px 10px', fontWeight: 600, ...Object.fromEntries(diffStyle.split(';').map(s => { const [k,v] = s.split(':'); return [k?.trim().replace(/-([a-z])/g, (_,c) => c.toUpperCase()), v?.trim()] }).filter(([k]) => k)) } }, DIFF_LABEL[q.difficulty]),
+        q.examFrequency === 'high' && h('span', { style: { fontSize: 11, background: '#F5A623', color: '#fff', borderRadius: 20, padding: '2px 10px', fontWeight: 700 } }, '頻出')
+      ),
+      // question
+      h('div', { style: { background: '#fff', borderRadius: 12, padding: '16px', boxShadow: '0 1px 4px rgba(0,0,0,.06)', border: '1px solid #f3f4f6' } },
+        h('p', { style: { fontSize: 16, fontWeight: 500, color: '#111827', lineHeight: 1.7 } }, q.question)
+      ),
+      // input
+      q.type === 'journal'
+        ? h(JournalEntryInput, { onSubmit: handleJournal, disabled: answered })
+        : h('div', { style: { display: 'flex', flexDirection: 'column', gap: 8 } },
+            ...q.choices.map((c, i) => {
+              let bg = '#fff', color = '#1f2937', border = '1px solid #e5e7eb'
+              if (answered) {
+                if (i === q.answer) { bg = '#27AE60'; color = '#fff'; border = '1px solid #27AE60' }
+                else if (i === chosen) { bg = '#E74C3C'; color = '#fff'; border = '1px solid #E74C3C' }
+                else { color = '#9ca3af' }
+              }
+              return h('button', {
+                key: i, onClick: () => handleChoice(i), disabled: answered,
+                style: { textAlign: 'left', padding: '12px 16px', borderRadius: 12, fontSize: 15, fontWeight: 500, background: bg, color, border, minHeight: 48, cursor: answered ? 'default' : 'pointer', boxShadow: '0 1px 3px rgba(0,0,0,.06)', opacity: answered && i !== q.answer && i !== chosen ? 0.5 : 1 }
+              }, h('span', { style: { fontWeight: 700, marginRight: 8 } }, ['A','B','C','D'][i] + '.'), c)
+            })
+          ),
+      // result
+      answered && h('div', {
+        style: { borderRadius: 12, padding: '14px 16px', background: correct ? '#f0fdf4' : '#fef2f2', border: `1px solid ${correct ? '#27AE60' : '#E74C3C'}` }
+      },
+        h('p', { style: { fontWeight: 700, fontSize: 18, color: correct ? '#27AE60' : '#E74C3C' } }, correct ? '正解！' : '不正解'),
+        !correct && q.type === 'journal' && h('div', { style: { marginTop: 8, fontSize: 13, color: '#374151' } },
+          h('p', { style: { fontWeight: 600, marginBottom: 4 } }, '正解：'),
+          h('p', null, `借方：${q.answer.debit.account}  ¥${q.answer.debit.amount.toLocaleString()}`),
+          h('p', null, `貸方：${q.answer.credit.account}  ¥${q.answer.credit.amount.toLocaleString()}`)
+        )
+      ),
+      // explanation
+      answered && h('div', { style: { background: '#eff6ff', borderRadius: 12, padding: '14px 16px', border: '1px solid #bfdbfe' } },
+        h('p', { style: { fontSize: 11, fontWeight: 700, color: '#1d4ed8', marginBottom: 4 } }, '解説'),
+        h('p', { style: { fontSize: 14, color: '#374151', lineHeight: 1.7 } }, q.explanation)
+      ),
+      // next button
+      answered && h('button', {
+        onClick: next,
+        style: { width: '100%', background: '#1E3A5F', color: '#fff', fontWeight: 700, borderRadius: 12, padding: '12px 0', fontSize: 16, border: 'none', minHeight: 48, cursor: 'pointer' }
+      }, idx + 1 < qs.length ? '次の問題 →' : '結果を見る →')
+    )
+  )
+}
+
+// --- ResultScreen ---
+function ResultScreen({ qs, results, onReviewWrong, onHome, onRetry }) {
+  const total = qs.length
+  const correct = Object.values(results).filter(Boolean).length
+  const rate = total > 0 ? Math.round(correct / total * 100) : 0
+  const wrongIds = Object.entries(results).filter(([,ok]) => !ok).map(([id]) => id)
+
+  const catMap = {}
+  for (const q of qs) {
+    if (!catMap[q.category]) catMap[q.category] = { total: 0, correct: 0 }
+    catMap[q.category].total++
+    if (results[q.id]) catMap[q.category].correct++
+  }
+
+  return h('div', { className: 'pb-8' },
+    h('div', { style: { background: '#1E3A5F', color: '#fff', padding: '32px 20px 48px', textAlign: 'center' } },
+      h('p', { style: { fontSize: 13, opacity: 0.8, marginBottom: 4 } }, 'セッション結果'),
+      h('p', { style: { fontSize: 64, fontWeight: 700, lineHeight: 1 } }, `${rate}%`),
+      h('p', { style: { fontSize: 14, opacity: 0.8, marginTop: 8 } }, `${correct} / ${total} 問正解`)
+    ),
+    h('div', { style: { padding: '0 16px', marginTop: -16, display: 'flex', flexDirection: 'column', gap: 12 } },
+      h('div', { style: { background: '#fff', borderRadius: 12, padding: '16px', boxShadow: '0 1px 4px rgba(0,0,0,.08)' } },
+        h('p', { style: { fontSize: 11, fontWeight: 700, color: '#9ca3af', marginBottom: 12 } }, 'カテゴリ別結果'),
+        ...Object.entries(catMap).map(([cat, s]) => {
+          const r = Math.round(s.correct / s.total * 100)
+          const color = r >= 80 ? '#16a34a' : r >= 50 ? '#ca8a04' : '#dc2626'
+          const barBg = r >= 80 ? '#27AE60' : r >= 50 ? '#F5A623' : '#E74C3C'
+          return h('div', { key: cat, style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 } },
+            h('span', { style: { flex: 1, fontSize: 13, color: '#374151' } }, CATEGORIES[cat]),
+            h('span', { style: { fontWeight: 700, fontSize: 13, color, width: 40, textAlign: 'right' } }, `${r}%`),
+            h('div', { style: { width: 60, background: '#e5e7eb', borderRadius: 4, height: 8, overflow: 'hidden' } },
+              h('div', { style: { height: '100%', background: barBg, width: `${r}%` } })
+            )
+          )
+        })
+      ),
+      wrongIds.length > 0 && h('button', {
+        onClick: () => onReviewWrong(wrongIds),
+        style: { width: '100%', background: '#E74C3C', color: '#fff', fontWeight: 700, borderRadius: 12, padding: '12px 0', fontSize: 16, border: 'none', minHeight: 48, cursor: 'pointer' }
+      }, `間違えた ${wrongIds.length} 問を復習する`),
+      h('button', {
+        onClick: onRetry,
+        style: { width: '100%', background: '#F5A623', color: '#fff', fontWeight: 700, borderRadius: 12, padding: '12px 0', fontSize: 16, border: 'none', minHeight: 48, cursor: 'pointer' }
+      }, 'もう一度挑戦'),
+      h('button', {
+        onClick: onHome,
+        style: { width: '100%', background: '#fff', color: '#1E3A5F', fontWeight: 700, borderRadius: 12, padding: '12px 0', fontSize: 16, border: '2px solid #1E3A5F', minHeight: 48, cursor: 'pointer' }
+      }, 'ホームへ戻る')
+    )
+  )
+}
+
+// ===================== APP =====================
+const SCREEN = { HOME: 'home', QUIZ: 'quiz', RESULT: 'result' }
+
+function App() {
+  const [progress, setProgress] = useState(loadProgress)
+  const [screen, setScreen] = useState(SCREEN.HOME)
+  const [quizQs, setQuizQs] = useState([])
+  const [idx, setIdx] = useState(0)
+  const [results, setResults] = useState({})
+
+  function saveAnswer(qid, ok) {
+    setProgress(prev => {
+      const existing = prev[qid]
+      const updated = { ...prev, [qid]: { correct: ok, attempts: (existing?.attempts||0)+1, lastAnswered: new Date().toISOString().slice(0,10) } }
+      saveProgressToStorage(updated)
+      return updated
+    })
+    setResults(prev => ({ ...prev, [qid]: ok }))
+  }
+
+  function startCategory(cat) {
+    setQuizQs(shuffle(questions.filter(q => q.category === cat)))
+    setIdx(0); setResults({}); setScreen(SCREEN.QUIZ)
+  }
+
+  function startRandom() {
+    setQuizQs(shuffle(questions)); setIdx(0); setResults({}); setScreen(SCREEN.QUIZ)
+  }
+
+  function startWeak() {
+    const weak = questions.filter(q => { const p = progress[q.id]; return p && !p.correct })
+    if (!weak.length) { alert('苦手問題はまだありません。まず各カテゴリの問題を解いてみましょう！'); return }
+    setQuizQs(shuffle(weak)); setIdx(0); setResults({}); setScreen(SCREEN.QUIZ)
+  }
+
+  function handleNext() {
+    if (idx + 1 >= quizQs.length) setScreen(SCREEN.RESULT)
+    else setIdx(i => i + 1)
+  }
+
+  function handleReviewWrong(wrongIds) {
+    setQuizQs(shuffle(quizQs.filter(q => wrongIds.includes(q.id))))
+    setIdx(0); setResults({}); setScreen(SCREEN.QUIZ)
+  }
+
+  function handleRetry() {
+    setQuizQs(shuffle(quizQs)); setIdx(0); setResults({}); setScreen(SCREEN.QUIZ)
+  }
+
+  const style = { fontFamily: "-apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', sans-serif", minHeight: '100vh', background: '#F8F9FA', maxWidth: 480, margin: '0 auto' }
+
+  return h('div', { style },
+    screen === SCREEN.HOME && h(HomeScreen, { progress, onStart: startCategory, onReview: startWeak, onRandom: startRandom }),
+    screen === SCREEN.QUIZ && h(QuizScreen, { qs: quizQs, idx, onAnswer: saveAnswer, onNext: handleNext, onHome: () => setScreen(SCREEN.HOME) }),
+    screen === SCREEN.RESULT && h(ResultScreen, { qs: quizQs, results, onReviewWrong: handleReviewWrong, onHome: () => setScreen(SCREEN.HOME), onRetry: handleRetry })
+  )
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(h(React.StrictMode, null, h(App)))
+</script>
+</body>
+</html>
