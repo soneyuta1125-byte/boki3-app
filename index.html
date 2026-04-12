@@ -593,6 +593,18 @@ function checkJournal(userDebits,userCredits,q){
 const {useState,useMemo}=React
 const h=React.createElement
 
+function JournalRow({row,idx,update,color,disabled}){
+  return h('div',{className:'flex gap-2 mb-1'},
+    h('select',{value:row.account,onChange:e=>update(idx,'account',e.target.value),disabled,
+      className:`flex-1 border rounded-lg px-2 py-2 bg-white focus:outline-none border-${color}-300 disabled:opacity-50`},
+      h('option',{value:''},'勘定科目 ▼'),
+      ...ACCOUNT_LIST.map(a=>h('option',{key:a,value:a},a))),
+    h('input',{type:'text',inputMode:'numeric',pattern:'[0-9]*',placeholder:'金額',value:row.amount,
+      autoComplete:'off',autoCorrect:'off',autoCapitalize:'off',spellCheck:false,
+      onChange:e=>{const v=e.target.value.replace(/[^0-9]/g,'');update(idx,'amount',v)},disabled,
+      className:`w-28 border rounded-lg px-2 py-2 focus:outline-none border-${color}-300 disabled:opacity-50`}))
+}
+
 // JournalEntryInput（複合仕訳対応）
 function JournalEntryInput({q,onSubmit,disabled}){
   const dRows=q.answer.debits.length
@@ -617,22 +629,14 @@ function JournalEntryInput({q,onSubmit,disabled}){
     onSubmit(ud,uc)
   }
 
-  const Row=({row,idx,side,update,color})=>h('div',{className:'flex gap-2 mb-1'},
-    h('select',{value:row.account,onChange:e=>update(idx,'account',e.target.value),disabled,
-      className:`flex-1 border rounded-lg px-2 py-2 bg-white focus:outline-none border-${color}-300 disabled:opacity-50`},
-      h('option',{value:''},'勘定科目 ▼'),
-      ...ACCOUNT_LIST.map(a=>h('option',{key:a,value:a},a))),
-    h('input',{type:'number',inputMode:'numeric',placeholder:'金額',value:row.amount,
-      onChange:e=>update(idx,'amount',e.target.value),disabled,
-      className:`w-28 border rounded-lg px-2 py-2 focus:outline-none border-${color}-300 disabled:opacity-50`}))
 
   return h('div',{className:'space-y-3'},
     h('div',{className:'bg-blue-50 rounded-xl p-4 border border-blue-200'},
       h('p',{className:'text-xs font-bold text-blue-700 mb-2'},`借方（デビット）${dRows>1?' ×'+dRows+'行':''}`),
-      debits.map((row,i)=>h(Row,{key:i,row,idx:i,side:'d',update:updD,color:'blue'}))),
+      debits.map((row,i)=>h(JournalRow,{key:i,row,idx:i,update:updD,color:'blue',disabled}))),
     h('div',{className:'bg-orange-50 rounded-xl p-4 border border-orange-200'},
       h('p',{className:'text-xs font-bold text-orange-700 mb-2'},`貸方（クレジット）${cRows>1?' ×'+cRows+'行':''}`),
-      credits.map((row,i)=>h(Row,{key:i,row,idx:i,side:'c',update:updC,color:'orange'}))),
+      credits.map((row,i)=>h(JournalRow,{key:i,row,idx:i,update:updC,color:'orange',disabled}))),
     err&&h('p',{className:'text-sm text-red-600 font-medium px-1'},err),
     !disabled&&h('button',{onClick:submit,style:{minHeight:48,backgroundColor:'#1E3A5F'},
       className:'w-full text-white font-bold rounded-xl py-3 text-base active:opacity-80'},'答え合わせ'))
