@@ -23,7 +23,8 @@ const INFINITE_CHUNK=10
 const CATEGORIES={
   cash:'現金・預金',receivable:'売掛金・買掛金',fixedAsset:'固定資産・減価償却',
   allowance:'貸倒引当金',inventory:'繰越商品・売上原価',deferral:'経過勘定',
-  incomeStatement:'損益計算書',balanceSheet:'貸借対照表',worksheet:'精算表'
+  incomeStatement:'損益計算書',balanceSheet:'貸借対照表',worksheet:'精算表',
+  tax:'税金・法人税等',securities:'有価証券',consumption:'消費税',voucher:'伝票会計'
 }
 
 const ACCOUNT_LIST=[
@@ -38,7 +39,10 @@ const ACCOUNT_LIST=[
   '仕入','給料','支払家賃','支払利息','支払地代','水道光熱費','通信費','消耗品費',
   '保険料','広告宣伝費','旅費交通費','雑費',
   '減価償却費','貸倒引当金繰入','貸倒損失','現金過不足','雑益','雑損','損益',
-  '償却債権取立益','固定資産売却益','固定資産売却損','修繕費'
+  '償却債権取立益','固定資産売却益','固定資産売却損','修繕費',
+  '法人税等','仮払法人税等','未払法人税等',
+  '売買目的有価証券','有価証券売却益','有価証券売却損','有価証券評価益','有価証券評価損','有価証券利息','受取配当金',
+  '仮払消費税','仮受消費税','未払消費税'
 ]
 
 // ===================== QUESTIONS =====================
@@ -419,7 +423,7 @@ const questions=[
  explanation:'区分：\n【営業収益】売上高\n【営業外収益】受取利息・受取配当金・有価証券売却益など（本業以外の金融的収益）\n【特別利益】固定資産売却益（臨時的な収益）\n受取利息は貸付金などへの利息収入で営業外収益です。',examFrequency:'high'},
 
 {id:'J062',type:'journal',category:'incomeStatement',difficulty:'standard',
- question:'次の取引を仕訳しなさい。\n決算において、費用勘定（給料¥200,000・支払家賃¥60,000）を損益勘定に振り替えた。\n【借方2勘定（損益）へ振替】',
+ question:'次の取引を仕訳しなさい。\n決算において、費用勘定（給料¥200,000・支払家賃¥60,000）を損益勘定に振り替えた。\n【貸方2勘定】',
  answer:{debits:[{account:'損益',amount:260000}],credits:[{account:'給料',amount:200000},{account:'支払家賃',amount:60000}]},
  explanation:'費用の決算振替：費用勘定（借方残高）を損益勘定に振り替えて閉じます。\n借方：損益¥260,000（合計）\n貸方：給料¥200,000・支払家賃¥60,000\n借方の損益は合計額で1行にまとめることも、科目ごとに分けることもあります。',examFrequency:'standard'},
 
@@ -547,6 +551,233 @@ const questions=[
  question:'次の決算整理仕訳を示しなさい。\n備品（取得原価¥120,000・残存価額¥12,000・耐用年数9年）について定額法で減価償却を行った（間接法）。',
  answer:{debits:[{account:'減価償却費',amount:12000}],credits:[{account:'備品減価償却累計額',amount:12000}]},
  explanation:'定額法計算：（120,000 − 12,000）÷ 9 ＝ 12,000円/年\n借方：減価償却費 ／ 貸方：備品減価償却累計額\n精算表での処理：修正記入欄に記入→減価償却費は損益計算書欄借方へ、累計額は貸借対照表欄貸方へ転記。',examFrequency:'high'},
+
+
+// ===== 税金・法人税等（10問） =====
+{id:'T001',type:'journal',category:'tax',difficulty:'basic',
+ question:'次の取引を仕訳しなさい。\n法人税等の中間申告を行い、¥150,000を現金で納付した。',
+ answer:{debits:[{account:'仮払法人税等',amount:150000}],credits:[{account:'現金',amount:150000}]},
+ explanation:'法人税等の中間納付：確定前の仮払いとして資産計上します。\n借方：仮払法人税等 ／ 貸方：現金\n「仮払」のとおり決算時に法人税等（費用）へ振り替えるまでの一時計上です。',examFrequency:'high'},
+
+{id:'T002',type:'journal',category:'tax',difficulty:'standard',
+ question:'次の取引を仕訳しなさい。\n決算において、当期の法人税等¥300,000を計上した。なお中間納付額¥150,000がある。\n【貸方2勘定】',
+ answer:{debits:[{account:'法人税等',amount:300000}],credits:[{account:'仮払法人税等',amount:150000},{account:'未払法人税等',amount:150000}]},
+ explanation:'法人税等の確定計上：\n法人税等（費用）¥300,000 ＝ 中間納付済¥150,000 ＋ 未払分¥150,000\n借方：法人税等¥300,000 ／ 貸方：仮払法人税等¥150,000・未払法人税等¥150,000\n未払法人税等は貸借対照表の流動負債に計上されます。',examFrequency:'high'},
+
+{id:'T003',type:'journal',category:'tax',difficulty:'basic',
+ question:'次の取引を仕訳しなさい。\n前期に計上した未払法人税等¥150,000について、確定申告を行い現金で納付した。',
+ answer:{debits:[{account:'未払法人税等',amount:150000}],credits:[{account:'現金',amount:150000}]},
+ explanation:'未払法人税等の納付：負債（未払法人税等）が消滅し、現金が減少します。\n借方：未払法人税等 ／ 貸方：現金\n前期決算で計上した未払分を翌期に実際に納付する際の仕訳です。',examFrequency:'high'},
+
+{id:'T004',type:'journal',category:'tax',difficulty:'standard',
+ question:'次の取引を仕訳しなさい。\n従業員に給料¥200,000を支払った。源泉所得税¥20,000を差し引いた残額¥180,000を現金で支払った。\n【貸方2勘定】',
+ answer:{debits:[{account:'給料',amount:200000}],credits:[{account:'現金',amount:180000},{account:'預り金',amount:20000}]},
+ explanation:'給与支払時の源泉徴収：\n借方：給料¥200,000（総支給額）\n貸方：現金¥180,000（手取り額）・預り金¥20,000（源泉所得税）\n預り金は会社が従業員の代わりに後日税務署へ納付する義務のある負債です。',examFrequency:'high'},
+
+{id:'T005',type:'journal',category:'tax',difficulty:'basic',
+ question:'次の取引を仕訳しなさい。\n源泉所得税として預かっていた¥20,000を税務署に現金で納付した。',
+ answer:{debits:[{account:'預り金',amount:20000}],credits:[{account:'現金',amount:20000}]},
+ explanation:'源泉所得税の納付：預り金（負債）が消滅し、現金が減少します。\n借方：預り金 ／ 貸方：現金\n会社は源泉徴収義務者として、従業員の所得税を給与から控除し代わりに納付します。',examFrequency:'high'},
+
+{id:'TC001',type:'choice',category:'tax',difficulty:'basic',
+ question:'法人税等の中間納付時に借方に計上される勘定科目はどれか。',
+ choices:['未払法人税等','法人税等','仮払法人税等','租税公課'],
+ answer:2,
+ explanation:'中間納付時の仕訳：借方「仮払法人税等」（資産）/ 貸方「現金」\n「仮払」という名称のとおり、確定申告前の一時的な前払い処理です。\n決算時に「法人税等（費用）」として確定計上し、仮払分を相殺します。',examFrequency:'high'},
+
+{id:'TC002',type:'choice',category:'tax',difficulty:'standard',
+ question:'決算において当期の法人税等¥400,000を計上した。中間納付額は¥180,000である。未払法人税等はいくらか。',
+ choices:['¥400,000','¥180,000','¥220,000','¥580,000'],
+ answer:2,
+ explanation:'未払法人税等＝確定法人税等 − 中間納付額\n400,000 − 180,000 ＝ 220,000円\n仕訳：借方 法人税等¥400,000 ／ 貸方 仮払法人税等¥180,000・未払法人税等¥220,000',examFrequency:'high'},
+
+{id:'TC003',type:'choice',category:'tax',difficulty:'basic',
+ question:'「未払法人税等」は貸借対照表上のどこに表示されるか。',
+ choices:['資産の部（流動資産）','負債の部（流動負債）','純資産の部','損益計算書の費用欄'],
+ answer:1,
+ explanation:'未払法人税等は「負債の部（流動負債）」に分類されます。\n確定申告で確定した法人税等のうち、まだ納付していない金額です。\n「法人税等（費用）」→損益計算書　「未払法人税等（負債）」→貸借対照表、と区別しましょう。',examFrequency:'high'},
+
+{id:'TC004',type:'choice',category:'tax',difficulty:'standard',
+ question:'給与支払時に源泉徴収した所得税の処理として正しいものはどれか。',
+ choices:['支払時に「租税公課」（費用）で計上する','支払時に「預り金」（負債）で計上し、後日税務署に納付する','給与から控除せず全額支払い、別途費用計上する','決算時に一括で「未払費用」として計上する'],
+ answer:1,
+ explanation:'源泉徴収の流れ：\n①給与支払時：借方 給料 ／ 貸方 現金（手取り額）・預り金（源泉税）\n②納付時：借方 預り金 ／ 貸方 現金\n会社は従業員の代わりに所得税を徴収して国に納める「源泉徴収義務者」です。',examFrequency:'high'},
+
+{id:'TC005',type:'choice',category:'tax',difficulty:'advanced',
+ question:'損益計算書における「法人税等」の表示位置として正しいものはどれか。',
+ choices:['売上原価に含まれる','販売費及び一般管理費に含まれる','営業外費用に含まれる','税引前当期純利益から差し引く項目として表示される'],
+ answer:3,
+ explanation:'損益計算書の末尾の構造：\n　経常利益\n　± 特別損益\n＝ 税引前当期純利益\n　法人税等　← ここで差し引く\n＝ 当期純利益\n法人税等は販管費でも営業外費用でもなく、最終利益を確定させる項目です。',examFrequency:'high'},
+
+
+// ===== 有価証券（10問） =====
+{id:'S001',type:'journal',category:'securities',difficulty:'basic',
+ question:'次の取引を仕訳しなさい。\n売買目的で株式¥100,000を購入し、代金は現金で支払った。',
+ answer:{debits:[{account:'売買目的有価証券',amount:100000}],credits:[{account:'現金',amount:100000}]},
+ explanation:'有価証券の取得：売買目的有価証券（資産）が増加し、現金が減少します。\n借方：売買目的有価証券 ／ 貸方：現金\n取得原価＝購入代金。売買目的有価証券は期末に時価評価が必要です。',examFrequency:'high'},
+
+{id:'S002',type:'journal',category:'securities',difficulty:'standard',
+ question:'次の取引を仕訳しなさい。\n帳簿価額¥100,000の売買目的有価証券を¥120,000で売却し、代金は現金で受け取った。\n【貸方2勘定】',
+ answer:{debits:[{account:'現金',amount:120000}],credits:[{account:'売買目的有価証券',amount:100000},{account:'有価証券売却益',amount:20000}]},
+ explanation:'有価証券の売却（売却益）：\n売却益＝売却額¥120,000 − 帳簿価額¥100,000 ＝ ¥20,000\n借方：現金¥120,000 ／ 貸方：売買目的有価証券¥100,000・有価証券売却益¥20,000\n有価証券売却益は損益計算書の「営業外収益」です。',examFrequency:'high'},
+
+{id:'S003',type:'journal',category:'securities',difficulty:'standard',
+ question:'次の取引を仕訳しなさい。\n帳簿価額¥80,000の売買目的有価証券を¥60,000で売却し、代金は現金で受け取った。\n【借方2勘定】',
+ answer:{debits:[{account:'現金',amount:60000},{account:'有価証券売却損',amount:20000}],credits:[{account:'売買目的有価証券',amount:80000}]},
+ explanation:'有価証券の売却（売却損）：\n売却損＝帳簿価額¥80,000 − 売却額¥60,000 ＝ ¥20,000\n借方：現金¥60,000・有価証券売却損¥20,000 ／ 貸方：売買目的有価証券¥80,000\n有価証券売却損は損益計算書の「営業外費用」です。',examFrequency:'high'},
+
+{id:'S004',type:'journal',category:'securities',difficulty:'standard',
+ question:'次の取引を仕訳しなさい。\n決算において、売買目的有価証券（帳簿価額¥200,000）の時価は¥230,000であった。',
+ answer:{debits:[{account:'売買目的有価証券',amount:30000}],credits:[{account:'有価証券評価益',amount:30000}]},
+ explanation:'時価評価（評価益）：時価 > 帳簿価額 → 有価証券を増額・評価益を計上します。\n評価益＝¥230,000 − ¥200,000 ＝ ¥30,000\n借方：売買目的有価証券（資産増） ／ 貸方：有価証券評価益（営業外収益）\n売買目的有価証券は毎決算時に時価評価が義務です。',examFrequency:'high'},
+
+{id:'S005',type:'journal',category:'securities',difficulty:'standard',
+ question:'次の取引を仕訳しなさい。\n決算において、売買目的有価証券（帳簿価額¥200,000）の時価は¥170,000であった。',
+ answer:{debits:[{account:'有価証券評価損',amount:30000}],credits:[{account:'売買目的有価証券',amount:30000}]},
+ explanation:'時価評価（評価損）：時価 < 帳簿価額 → 有価証券を減額・評価損を計上します。\n評価損＝¥200,000 − ¥170,000 ＝ ¥30,000\n借方：有価証券評価損（営業外費用） ／ 貸方：売買目的有価証券（資産減）\n評価損は翌期に時価が回復しても戻し入れは不要です。',examFrequency:'high'},
+
+{id:'S006',type:'journal',category:'securities',difficulty:'basic',
+ question:'次の取引を仕訳しなさい。\n保有する株式について配当金¥5,000を現金で受け取った。',
+ answer:{debits:[{account:'現金',amount:5000}],credits:[{account:'受取配当金',amount:5000}]},
+ explanation:'配当金の受取：現金（資産）が増加し、受取配当金（収益）を計上します。\n借方：現金 ／ 貸方：受取配当金\n受取配当金は損益計算書の「営業外収益」に分類されます。',examFrequency:'standard'},
+
+{id:'SC001',type:'choice',category:'securities',difficulty:'basic',
+ question:'売買目的有価証券の期末評価方法として正しいものはどれか。',
+ choices:['取得原価のまま評価する','時価で評価し、評価差額を損益に計上する','時価で評価するが評価差額は損益に計上しない','毎期均等に償却する'],
+ answer:1,
+ explanation:'売買目的有価証券は「時価評価」が義務です。\n時価 > 帳簿価額 → 有価証券評価益（営業外収益）\n時価 < 帳簿価額 → 有価証券評価損（営業外費用）\n評価差額はその期の損益計算書に反映させます。',examFrequency:'high'},
+
+{id:'SC002',type:'choice',category:'securities',difficulty:'standard',
+ question:'帳簿価額¥150,000の有価証券を¥180,000で売却した場合の有価証券売却益はいくらか。',
+ choices:['¥180,000','¥150,000','¥30,000','¥330,000'],
+ answer:2,
+ explanation:'有価証券売却益＝売却額 − 帳簿価額\n180,000 − 150,000 ＝ 30,000円\n売却額 > 帳簿価額 → 売却益、売却額 < 帳簿価額 → 売却損です。',examFrequency:'high'},
+
+{id:'SC003',type:'choice',category:'securities',difficulty:'standard',
+ question:'帳簿価額¥500,000の売買目的有価証券について、期末時価が¥480,000であった場合の仕訳として正しいものはどれか。',
+ choices:['借：有価証券評価益¥20,000 ／ 貸：売買目的有価証券¥20,000','借：売買目的有価証券¥20,000 ／ 貸：有価証券評価益¥20,000','借：有価証券評価損¥20,000 ／ 貸：売買目的有価証券¥20,000','仕訳不要'],
+ answer:2,
+ explanation:'時価¥480,000 < 帳簿価額¥500,000 → 評価損¥20,000を計上します。\n借方：有価証券評価損¥20,000（費用）\n貸方：売買目的有価証券¥20,000（資産の減少）\n時価が下がった → 評価損、時価が上がった → 評価益です。',examFrequency:'high'},
+
+{id:'SC004',type:'choice',category:'securities',difficulty:'basic',
+ question:'次のうち、有価証券売却益・有価証券評価損が計上される損益計算書上の区分はどれか。',
+ choices:['売上高・売上原価','販売費及び一般管理費','営業外収益・営業外費用','特別利益・特別損失'],
+ answer:2,
+ explanation:'有価証券の損益はすべて「営業外損益」に分類されます。\n【営業外収益】有価証券売却益・有価証券評価益・受取配当金・受取利息\n【営業外費用】有価証券売却損・有価証券評価損・支払利息\n本業以外の金融的な損益のため営業外です。',examFrequency:'high'},
+
+// ===== 消費税（10問） =====
+{id:'CT001',type:'journal',category:'consumption',difficulty:'standard',
+ question:'次の取引を仕訳しなさい。\n商品¥100,000（税抜き）を仕入れ、消費税¥10,000とともに計¥110,000を現金で支払った（税抜き処理）。\n【借方2勘定】',
+ answer:{debits:[{account:'仕入',amount:100000},{account:'仮払消費税',amount:10000}],credits:[{account:'現金',amount:110000}]},
+ explanation:'税抜き処理の仕入：消費税を「仮払消費税」（資産）として分離計上します。\n借方：仕入¥100,000・仮払消費税¥10,000 ／ 貸方：現金¥110,000\n消費税は費用ではなく、後で相殺される一時的な資産です。',examFrequency:'high'},
+
+{id:'CT002',type:'journal',category:'consumption',difficulty:'standard',
+ question:'次の取引を仕訳しなさい。\n商品¥200,000（税抜き）を売り上げ、消費税¥20,000とともに計¥220,000を現金で受け取った（税抜き処理）。\n【貸方2勘定】',
+ answer:{debits:[{account:'現金',amount:220000}],credits:[{account:'売上',amount:200000},{account:'仮受消費税',amount:20000}]},
+ explanation:'税抜き処理の売上：消費税を「仮受消費税」（負債）として分離計上します。\n借方：現金¥220,000 ／ 貸方：売上¥200,000・仮受消費税¥20,000\n仮受消費税は顧客から預かった税金で、後日国に納付する義務のある負債です。',examFrequency:'high'},
+
+{id:'CT003',type:'journal',category:'consumption',difficulty:'standard',
+ question:'次の取引を仕訳しなさい。\n決算において、仮受消費税¥50,000と仮払消費税¥30,000を相殺し、差額を未払消費税として計上した。\n【貸方2勘定】',
+ answer:{debits:[{account:'仮受消費税',amount:50000}],credits:[{account:'仮払消費税',amount:30000},{account:'未払消費税',amount:20000}]},
+ explanation:'消費税の確定計上：\n納付額＝仮受消費税¥50,000 − 仮払消費税¥30,000 ＝ ¥20,000\n借方：仮受消費税¥50,000 ／ 貸方：仮払消費税¥30,000・未払消費税¥20,000\n未払消費税（負債）は翌期に税務署へ納付します。',examFrequency:'high'},
+
+{id:'CT004',type:'journal',category:'consumption',difficulty:'basic',
+ question:'次の取引を仕訳しなさい。\n消費税の確定申告を行い、未払消費税¥20,000を現金で納付した。',
+ answer:{debits:[{account:'未払消費税',amount:20000}],credits:[{account:'現金',amount:20000}]},
+ explanation:'未払消費税の納付：負債（未払消費税）が消滅し、現金が減少します。\n借方：未払消費税 ／ 貸方：現金\n前期決算で計上した未払消費税を翌期に実際に納付する仕訳です。',examFrequency:'high'},
+
+{id:'CT005',type:'journal',category:'consumption',difficulty:'standard',
+ question:'次の取引を仕訳しなさい。\n備品¥300,000（税抜き）を購入し、消費税¥30,000とともに¥330,000を小切手で支払った（税抜き処理）。\n【借方2勘定】',
+ answer:{debits:[{account:'備品',amount:300000},{account:'仮払消費税',amount:30000}],credits:[{account:'当座預金',amount:330000}]},
+ explanation:'固定資産購入時の消費税（税抜き処理）：\n商品仕入と同様、固定資産の消費税も「仮払消費税」で処理します。\n借方：備品¥300,000・仮払消費税¥30,000 ／ 貸方：当座預金¥330,000\n取得原価には消費税を含めない点がポイントです。',examFrequency:'standard'},
+
+{id:'CTC001',type:'choice',category:'consumption',difficulty:'basic',
+ question:'消費税の税抜き処理において、仕入時に計上する「仮払消費税」の貸借対照表上の分類はどれか。',
+ choices:['負債（流動負債）','資産（流動資産）','費用','純資産'],
+ answer:1,
+ explanation:'仮払消費税は「資産（流動資産）」に分類されます。\n後で仮受消費税と相殺される一時的な資産のため費用ではありません。\n一方「仮受消費税」は顧客から預かった税金 → 「負債（流動負債）」です。\n資産と負債で反対になる点に注意しましょう。',examFrequency:'high'},
+
+{id:'CTC002',type:'choice',category:'consumption',difficulty:'standard',
+ question:'当期の仮受消費税¥80,000・仮払消費税¥55,000のとき、決算で計上する未払消費税はいくらか。',
+ choices:['¥80,000','¥55,000','¥25,000','¥135,000'],
+ answer:2,
+ explanation:'未払消費税＝仮受消費税 − 仮払消費税\n80,000 − 55,000 ＝ 25,000円\n仮受 > 仮払 → 差額を未払消費税（負債）として計上します。\n仕訳：借方 仮受消費税¥80,000 ／ 貸方 仮払消費税¥55,000・未払消費税¥25,000',examFrequency:'high'},
+
+{id:'CTC003',type:'choice',category:'consumption',difficulty:'basic',
+ question:'消費税の税抜き処理を採用している場合、損益計算書の売上高に消費税は含まれるか。',
+ choices:['含まれる（税込み金額で計上）','含まれない（税抜き金額で計上）','売上の一部として含まれる','決算整理後に追加される'],
+ answer:1,
+ explanation:'税抜き処理では売上・仕入ともに消費税を含まない金額で計上します。\n売上¥200,000（税抜）→ 損益計算書の売上高は¥200,000\n消費税¥20,000は「仮受消費税（負債）」として別管理 → 損益計算書には現れません。\n税込み処理と区別して覚えましょう。',examFrequency:'standard'},
+
+{id:'CTC004',type:'choice',category:'consumption',difficulty:'standard',
+ question:'税抜き処理での固定資産購入時、消費税の処理として正しいものはどれか。',
+ choices:['固定資産の取得原価に含める','費用（租税公課）として計上する','仮払消費税として資産計上する','消費税は無視する'],
+ answer:2,
+ explanation:'税抜き処理では購入の種類（商品・固定資産・経費）に関わらず消費税は「仮払消費税」として処理します。\n例：備品¥300,000（税抜）→ 借方 備品¥300,000・仮払消費税¥30,000 ／ 貸方 当座預金¥330,000\n取得原価に含める（税込み処理）と混同しないよう注意！',examFrequency:'standard'},
+
+{id:'CTC005',type:'choice',category:'consumption',difficulty:'advanced',
+ question:'当期の仮受消費税¥60,000・仮払消費税¥60,000のとき、決算での処理として正しいものはどれか。',
+ choices:['未払消費税¥60,000を計上する','何も計上しない（相殺でゼロ）','還付消費税¥60,000を計上する','仮受消費税のみ取り崩す'],
+ answer:1,
+ explanation:'仮受消費税＝仮払消費税の場合、相殺するとちょうどゼロになります。\n仕訳：借方 仮受消費税¥60,000 ／ 貸方 仮払消費税¥60,000\n未払消費税も還付消費税も発生しません。\n実務では仕入と売上の消費税が完全一致することはほぼありませんが、試験でよく出題されるパターンです。',examFrequency:'standard'},
+
+// ===== 伝票会計（10問） =====
+{id:'V001',type:'choice',category:'voucher',difficulty:'basic',
+ question:'3伝票制において、現金を受け取ったときに使用する伝票はどれか。',
+ choices:['入金伝票','出金伝票','振替伝票','売上伝票'],
+ answer:0,
+ explanation:'3伝票制の使い分け：\n入金伝票：現金を受け取ったとき（借方が現金で固定）\n出金伝票：現金を支払ったとき（貸方が現金で固定）\n振替伝票：現金の動きを伴わないとき（掛け・手形・減価償却など）\n「入金＝現金の受取」と覚えましょう。',examFrequency:'high'},
+
+{id:'V002',type:'choice',category:'voucher',difficulty:'basic',
+ question:'3伝票制において、掛けで商品¥50,000を売り上げた取引を記録する伝票はどれか。',
+ choices:['入金伝票','出金伝票','振替伝票','売上伝票'],
+ answer:2,
+ explanation:'掛け売上は現金の動きがないため「振替伝票」を使います。\n振替伝票の仕訳：借方 売掛金¥50,000 ／ 貸方 売上¥50,000\n現金が動く取引 → 入金・出金伝票\n現金が動かない取引 → 振替伝票',examFrequency:'high'},
+
+{id:'V003',type:'journal',category:'voucher',difficulty:'standard',
+ question:'次の入金伝票から仕訳を示しなさい。\n【入金伝票】科目：売掛金　金額：¥80,000',
+ answer:{debits:[{account:'現金',amount:80000}],credits:[{account:'売掛金',amount:80000}]},
+ explanation:'入金伝票の読み方：\n借方は常に「現金」（省略されている）\n科目欄「売掛金」＝貸方科目（現金の相手科目）\n仕訳：借方 現金¥80,000 ／ 貸方 売掛金¥80,000\n「入金伝票の科目欄＝貸方科目」と覚えましょう。',examFrequency:'high'},
+
+{id:'V004',type:'journal',category:'voucher',difficulty:'standard',
+ question:'次の出金伝票から仕訳を示しなさい。\n【出金伝票】科目：買掛金　金額：¥60,000',
+ answer:{debits:[{account:'買掛金',amount:60000}],credits:[{account:'現金',amount:60000}]},
+ explanation:'出金伝票の読み方：\n貸方は常に「現金」（省略されている）\n科目欄「買掛金」＝借方科目（現金の相手科目）\n仕訳：借方 買掛金¥60,000 ／ 貸方 現金¥60,000\n「出金伝票の科目欄＝借方科目」と覚えましょう。',examFrequency:'high'},
+
+{id:'V005',type:'journal',category:'voucher',difficulty:'standard',
+ question:'次の振替伝票から仕訳を示しなさい。\n【振替伝票】借方：売掛金¥120,000　貸方：売上¥120,000',
+ answer:{debits:[{account:'売掛金',amount:120000}],credits:[{account:'売上',amount:120000}]},
+ explanation:'振替伝票はそのまま仕訳に読み替えます。\n借方：売掛金¥120,000 ／ 貸方：売上¥120,000\n振替伝票は借方・貸方両方が記載されるため、仕訳への変換が最もシンプルです。掛け売上・手形取引・決算整理仕訳などがこれに該当します。',examFrequency:'standard'},
+
+{id:'V006',type:'choice',category:'voucher',difficulty:'standard',
+ question:'売掛金¥50,000を現金で回収した。入金伝票に記入する「科目」欄はどれか。',
+ choices:['現金','売上','売掛金','受取手形'],
+ answer:2,
+ explanation:'入金伝票の科目欄＝貸方科目（現金の相手科目）\n仕訳：借方 現金¥50,000 ／ 貸方 売掛金¥50,000\n入金伝票では借方「現金」が固定・省略 → 科目欄には貸方「売掛金」を記入します。',examFrequency:'high'},
+
+{id:'V007',type:'choice',category:'voucher',difficulty:'standard',
+ question:'買掛金¥40,000を現金で支払った。出金伝票に記入する「科目」欄はどれか。',
+ choices:['現金','支払手形','買掛金','仕入'],
+ answer:2,
+ explanation:'出金伝票の科目欄＝借方科目（現金の相手科目）\n仕訳：借方 買掛金¥40,000 ／ 貸方 現金¥40,000\n出金伝票では貸方「現金」が固定・省略 → 科目欄には借方「買掛金」を記入します。',examFrequency:'high'},
+
+{id:'V008',type:'choice',category:'voucher',difficulty:'standard',
+ question:'商品¥80,000を仕入れ、代金のうち¥30,000は現金払い・残額¥50,000は掛けとした。3伝票で処理する場合の正しい組み合わせはどれか。',
+ choices:['出金伝票のみ（¥80,000）','振替伝票のみ（¥80,000）','出金伝票（¥30,000）＋振替伝票（¥50,000）','入金伝票（¥30,000）＋振替伝票（¥50,000）'],
+ answer:2,
+ explanation:'複合取引の3伝票処理：\n現金払い¥30,000 → 出金伝票：科目「仕入」¥30,000\n掛け部分¥50,000 → 振替伝票：借方「仕入」¥50,000 ／ 貸方「買掛金」¥50,000\n「現金部分は入出金伝票、現金以外は振替伝票」というルールで分割します。',examFrequency:'standard'},
+
+{id:'V009',type:'choice',category:'voucher',difficulty:'advanced',
+ question:'次の伝票の内容から仕訳を読み取った場合、正しいものはどれか。\n【出金伝票】科目：給料　金額：¥180,000',
+ choices:['借：現金¥180,000 ／ 貸：給料¥180,000','借：給料¥180,000 ／ 貸：現金¥180,000','借：給料¥200,000 ／ 貸：現金¥180,000・預り金¥20,000','借：現金¥180,000 ／ 貸：未払費用¥180,000'],
+ answer:1,
+ explanation:'出金伝票の仕訳：借方＝科目欄の勘定科目、貸方＝現金\n借方：給料¥180,000 ／ 貸方：現金¥180,000\n源泉徴収がある場合は振替伝票で別途処理するか、この出金伝票で手取り額のみを記録します。',examFrequency:'standard'},
+
+{id:'VC001',type:'choice',category:'voucher',difficulty:'basic',
+ question:'振替伝票を使用する取引として正しいものはどれか。',
+ choices:['売掛金の現金回収','現金による備品購入','掛けによる商品仕入','現金による給料支払い'],
+ answer:2,
+ explanation:'振替伝票は「現金が動かない取引」に使います。\n掛けによる仕入→現金の動きなし → 振替伝票\n借方：仕入 ／ 貸方：買掛金\n現金の動く取引（売掛金の回収・現金購入・現金払い給料）は入金・出金伝票を使います。',examFrequency:'high'},
 
 ]// end of questions
 
